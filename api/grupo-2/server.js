@@ -1,5 +1,4 @@
 const express = require('express')
-
 const cors = require('cors');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
@@ -7,7 +6,10 @@ const app = express()
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const uniqueValidator = require('mongoose-unique-validator')
-
+var bodyParser = require('body-parser');
+var fs = require('fs');
+var path = require('path');
+app.set("view engine", "ejs");
 const port = 3002
 dotenv.config()
 const uri = process.env.MONGODB_URL
@@ -15,6 +17,39 @@ const uri = process.env.MONGODB_URL
 
 app.use(express.json())
 app.use(cors())
+pp.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.json())
+
+var multer = require('multer');
+
+var storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads');
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 100000000 }, // 100MB file size limit
+    fileFilter: function(req, file, cb) {
+        checkFileType(file, cb);
+    }
+}).single('image');
+
+function checkFileType(file, cb) {
+    const filetypes = /jpeg|jpg|png|gif/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
+  
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb('Error: Images only! (jpeg, jpg, png, gif)');
+    }
+  }
 
 /*Schemas*/
 const PointSchema = new mongoose.Schema({
@@ -76,7 +111,10 @@ const Evento = new mongoose.model('Evento', mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Usuario'  
     },
-    url_banner: String,
+    url_banner: { 
+        data: Buffer,
+        contentType: String
+    },
     dataInicio: String,
     dataFim: String,
     horarioInicio: String,
@@ -103,10 +141,43 @@ const Evento = new mongoose.model('Evento', mongoose.Schema({
 }))
 
 /*Requisições*/
-app.get('/eventos', async(req, res) => {
+app.get('/evento', async(req, res) => {
     const eventos = await Evento.find().sort({ data: -1 }).limit(3)
     res.status(201).json(eventos)
 })
+
+app.get('/eventos', async (req, res) => {
+    try {
+        const data = await Evento.find({}).populate('categoria');
+        let retorno = [];
+        data.forEach((item) => {
+            let event = {
+                nome: item.nome,
+                descricao: item.descricao,
+                dataHora: {
+                    dataInicio: item.dataInicio,
+                    dataFim: item.dataFim,
+                    horarioInicio: item.horarioInicio,
+                    horarioFim: item.horarioFim
+                },
+                image: {
+                    data: item.url_banner.data.toString('base64'), 
+                    contentType: item.url_banner.contentType
+                },
+                categoria: {
+                    nome: item.categoria.nome 
+                }
+            };
+            retorno.push(event);
+        });
+
+        res.setHeader('Content-Type', 'application/json');
+        res.send(retorno); 
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ error: 'An error occurred while fetching events.' });
+    }
+});
 
 app.get('/evento/:id', async(req, res) => {
     console.log(req.params.id)
@@ -133,12 +204,14 @@ app.get('/usuario/:id', async(req, res) => {
         res.status(500).send(error)
     }
 })
-
-app.post('/evento', async(req, res) => {
+/* app.post('/evento', upload.single('banner'), async(req, res) => {
     const nome = req.body.nome
     const descricao = req.body.descricao
     const usuario = req.body.usuario
-    const banner = req.body.banner
+    const banner = {
+        data: fs.readFileSync(path.join(__dirname + '/uploads/' + req.file.filename)),
+        contentType: 'image/png'
+    }
     const dataInicio = req.body.dataInicio
     const dataFim = req.body.dataFim
     const horarioInicio = req.body.horarioInicio
@@ -163,7 +236,43 @@ app.post('/evento', async(req, res) => {
 
     const eventoSalvo = await evento.save()
     res.status(201).json(eventoSalvo)
-})
+}) */
+app.post('/evento', upload.single('banner'), async (req, res) => {
+    try {
+        const { nome, descricao, usuario, dataInicio, dataFim, horarioInicio, horarioFim, ingresso, endereco, categoria } = req.body;
+
+        let banner = null;
+        if (req.file) {
+            const filePath = path.join(__dirname, 'uploads', req.file.filename);
+            const fileData = await fs.readFile(filePath);
+            banner = {
+                data: fileData,
+                contentType: req.file.mimetype
+            };
+            await fs.unlink(filePath);
+        }
+
+        const evento = new Evento({
+            nome,
+            descricao,
+            usuarioId: usuario._id,
+            url_banner: banner,
+            dataInicio,
+            dataFim,
+            horarioInicio,
+            horarioFim,
+            ingresso,
+            endereco,
+            categoria
+        });
+
+        const eventoSalvo = await evento.save();
+        res.status(201).json(eventoSalvo);
+    } catch (error) {
+        console.error('Error creating event:', error);
+        res.status(500).json({ error: 'An error occurred while creating the event.' });
+    }
+});
 
 app.post('/cadastro', async(req, res) => {
     try {

@@ -8,12 +8,12 @@ const path = __dirname + '/views/';
 
 const app = express()
 
-var corsOptions = {
+/* var corsOptions = {
   origin: 'https://kit.fontawesome.com/e2a2c1e4a6.js',
   optionsSuccesStatus: 200
 }
 
-app.use(cors(corsOptions))
+app.use(cors(corsOptions)) */
 
 router.use(function (req,res,next){
   console.log('/' + req.method);

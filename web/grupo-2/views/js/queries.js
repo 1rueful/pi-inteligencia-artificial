@@ -1,7 +1,7 @@
 const protocolo = 'http://'
 const baseURL = 'localhost:3002'
 
-async function cadastrarEvento() {
+/* async function cadastrarEvento() {
     //pega os inputs que contém os valores que o usuário digitou
     let nomeInput = document.querySelector('#nomeInput')
     let descricaoInput = document.querySelector('#descricaoInput')
@@ -110,7 +110,90 @@ async function cadastrarEvento() {
         divAlerta.style.display = "block"
         divAlerta.innerHTML = "Ocorreu um erro ao cadastrar evento"
     }
-}
+} */
+    document.getElementById('eventoForm').addEventListener('submit', async (evento) => {
+        evento.preventDefault(); 
+        await cadastrarEvento();
+    });
+    
+    async function cadastrarEvento() {
+        const usuario = JSON.parse(localStorage.getItem("Usuario"));
+        if (!usuario) {
+            alert("Faça login antes de cadastrar um evento!");
+            return;
+        }
+ 
+        const nome = document.querySelector('#nomeInput').value;
+        const descricao = document.querySelector('#descricaoInput').value;
+        const bannerInput = document.querySelector('#urlBannerInput');
+        const dataInicio = document.querySelector('#dataInicioInput').value;
+        const dataFim = document.querySelector('#dataFimInput').value;
+        const horarioInicio = document.querySelector('#horarioInicioInput').value;
+        const horarioFim = document.querySelector('#horarioFimInput').value;
+        const valor = document.querySelector('#valorInput').value;
+        const urlIngresso = document.querySelector('#urlIngressoInput').value;
+        const rua = document.querySelector('#ruaInput').value;
+        const numero = document.querySelector('#numeroInput').value;
+        const bairro = document.querySelector('#bairroInput').value;
+        const estado = document.querySelector('#estadoInput').value;
+        const cidade = document.querySelector('#cidadeInput').value;
+        const cep = document.querySelector('#cepInput').value;
+        const complemento = document.querySelector('#complementoInput').value;
+        const categoria = document.querySelector('#categoriaInput').value;
+/*     
+        if (!nome || !descricao || !dataInicio || !horarioInicio || !horarioFim || !rua || !numero || !bairro || !estado || !cidade || !cep) {
+            alert("Preencha os campos obrigatórios!");
+            return;
+        } */
+    
+        const formData = new FormData();
+        formData.append('nome', nome);
+        formData.append('descricao', descricao);
+        formData.append('usuarioId', usuario._id);
+        formData.append('dataInicio', dataInicio);
+        formData.append('dataFim', dataFim);
+        formData.append('horarioInicio', horarioInicio);
+        formData.append('horarioFim', horarioFim);
+        formData.append('ingresso[valor]', valor ? parseFloat(valor) : null);
+        formData.append('ingresso[urlIngresso]', urlIngresso);
+        formData.append('endereco[rua]', rua);
+        formData.append('endereco[numero]', numero);
+        formData.append('endereco[bairro]', bairro);
+        formData.append('endereco[estado]', estado);
+        formData.append('endereco[cidade]', cidade);
+        formData.append('endereco[cep]', cep);
+        formData.append('endereco[complemento]', complemento);
+        formData.append('categoria[nome]', categoria);
+        formData.append('categoria[descricao]', '');
+
+        if (bannerInput.files.length > 0) {
+            formData.append('banner', bannerInput.files[0]);
+        }
+    
+        try {
+            const eventosEndpoint = '/evento';
+            const URLCompleta = `${protocolo}${baseURL}${eventosEndpoint}`;
+    
+            const response = await axios.post(URLCompleta, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+    
+            document.getElementById('eventoForm').reset();
+
+            const divAlerta = document.getElementById('alert-evento');
+            divAlerta.classList.add('alert-success');
+            divAlerta.style.display = "block";
+            divAlerta.innerHTML = "Evento cadastrado com sucesso!";
+        } catch (error) {
+            console.error("Erro ao cadastrar evento:", error);
+            const divAlerta = document.getElementById('alert-evento');
+            divAlerta.classList.add('alert-danger');
+            divAlerta.style.display = "block";
+            divAlerta.innerHTML = "Ocorreu um erro ao cadastrar evento.";
+        }
+    }
 
 async function buscarEventos(){
     const eventosEndpoint = '/eventos'
@@ -137,10 +220,12 @@ function addHtml(evento){
     eventoHtml.classList.add('col-sm-4','evento-card')
     eventoHtml.dataset.eventoId = evento._id
     eventoHtml.dataset.eventoNome = evento.nome
-
+    const imageSrc = evento.url_banner && evento.url_banner.data
+        ? `data:${evento.url_banner.contentType};base64,${evento.url_banner.data.toString('base64')}`
+        : "img/capa-evento.png";
     eventoHtml.innerHTML = `
         <div class="card">
-            <img src="img/capa-evento.png" class="card-img-top" alt="Imagem do evento">
+            <img src="${imageSrc}" class="card-img-top" alt="Imagem do evento">
             <div class="card-body">
                 <h5 class="card-title">${evento.nome}</h5>
                 <h6 class="card-subtitle">${evento.dataInicio} - ${evento.horarioInicio}</h6>
@@ -160,7 +245,6 @@ function addHtml(evento){
     row.classList.add('row')
     row.classList.add('eventos-carousel-3')
     eventos.appendChild(row)
-
     row.appendChild(eventoHtml)
 }
 
@@ -314,5 +398,61 @@ function exibirAlerta(alerta, classe){
     divAlerta.innerHTML = alerta
 }
 
+function toggleChatbot() {
+    let chatbot = document.getElementById("chatbot-container");
+    chatbot.style.display = chatbot.style.display === "none" || chatbot.style.display === "" ? "flex" : "none";
+}
 
+function handleKeyPress(event) {
+    if (event.key === "Enter") {
+        sendMessage();
+    }
+}
+
+function sendMessage() {
+    let inputField = document.getElementById("chatbot-input");
+    let message = inputField.value.trim();
+    if (message === "") return;
+
+    let chatBox = document.getElementById("chatbot-messages");
+    chatBox.innerHTML += `<div><strong>Você:</strong> ${message}</div>`;
+
+    inputField.value = "";
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    fetchChatbotResponse(message);
+}
+
+async function fetchChatbotResponse(userMessage) {
+    let chatBox = document.getElementById("chatbot-messages");
+
+    try {
+        let response = await axios.post("https://api.openai.com/v1/chat/completions", {
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: userMessage }]
+        }, {
+            headers: {
+                "Authorization": `Bearer ${process.env.API_KEY}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        let botResponse = response.data.choices[0].message.content;
+        chatBox.innerHTML += `<div><strong>Bot:</strong> ${botResponse}</div>`;
+    } catch (error) {
+        console.error("Erro na API:", error);
+        chatBox.innerHTML += `<div><strong>Bot:</strong> Ocorreu um erro, tente novamente.</div>`;
+    }
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Simple chatbot responses (replace with AI API later)
+function getBotReply(message) {
+    message = message.toLowerCase();
+    if (message.includes("evento")) return "Você pode conferir os eventos na página principal!";
+    if (message.includes("ingresso")) return "Os ingressos estão disponíveis na seção de eventos!";
+    if (message.includes("localização")) return "Os eventos ocorrem em diversas localidades, confira os detalhes do evento!";
+    return "Desculpe, não entendi. Você pode reformular a pergunta?";
+}
  
