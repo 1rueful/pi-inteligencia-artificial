@@ -456,3 +456,58 @@ function getBotReply(message) {
     return "Desculpe, não entendi. Você pode reformular a pergunta?";
 }
  
+let mediaRecorder;
+let audioChunks = [];
+
+document.getElementById("recordButton").addEventListener("click", async function () {
+    if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        startRecording();
+    } else {
+        stopRecording();
+    }
+});
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+            sendAudioToAPI(audioBlob);
+        };
+
+        mediaRecorder.start();
+        document.getElementById("recordButton").innerHTML = '<i class="fa-solid fa-stop"></i>';
+    } catch (error) {
+        console.error("Error accessing microphone:", error);
+        alert("Microphone access is needed for transcription.");
+    }
+}
+
+function stopRecording() {
+    mediaRecorder.stop();
+    document.getElementById("recordButton").innerHTML = '<i class="fa-solid fa-microphone"></i>';
+}
+
+async function sendAudioToAPI(audioBlob) {
+    let formData = new FormData();
+    formData.append("audio_file", audioBlob, "recorded_audio.wav");
+
+    try {
+        let response = await axios.post("http://localhost:8000/asr", formData, {
+            headers: { "Content-Type": "multipart/form-data" }
+        });
+
+        const transcript = await response.data.text;
+        document.getElementById("searchInput").value = transcript;
+    } catch (error) {
+        console.error("Error during transcription:", error);
+        alert("Failed to transcribe the audio.");
+    }
+}
