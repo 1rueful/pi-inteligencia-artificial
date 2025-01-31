@@ -500,7 +500,9 @@ async function sendAudioToAPI(audioBlob) {
     formData.append("audio_file", audioBlob, "recorded_audio.wav");
 
     try {
-        let response = await axios.post("http://localhost:8000/asr", formData, {
+        const audioEndpoint = '/asr';
+        const URLCompleta = `${protocolo}${baseURL}${audioEndpoint}`;
+        let response = await axios.post(URLCompleta, formData, {
             headers: { "Content-Type": "multipart/form-data" }
         });
 
