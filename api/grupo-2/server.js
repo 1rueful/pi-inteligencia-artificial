@@ -204,6 +204,17 @@ app.get('/usuario/:id', async(req, res) => {
         res.status(500).send(error)
     }
 })
+
+app.get('/api/data', async (req, res) => {
+    try {
+        const response = await axios.get('URL_DA_API', {
+            headers: { 'Authorization': `Bearer ${process.env.API_KEY}` }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao obter dados' });
+    }
+});
 /* app.post('/evento', upload.single('banner'), async(req, res) => {
     const nome = req.body.nome
     const descricao = req.body.descricao
