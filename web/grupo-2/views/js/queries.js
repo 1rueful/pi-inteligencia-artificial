@@ -398,6 +398,12 @@ function exibirAlerta(alerta, classe){
     divAlerta.innerHTML = alerta
 }
 
+async function getData() {
+    const response = await fetch('/api/data');
+    const data = await response.json();
+    console.log(data);
+}
+
 function toggleChatbot() {
     let chatbot = document.getElementById("chatbot-container");
     chatbot.style.display = chatbot.style.display === "none" || chatbot.style.display === "" ? "flex" : "none";
