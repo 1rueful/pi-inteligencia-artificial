@@ -205,14 +205,22 @@ app.get('/usuario/:id', async(req, res) => {
     }
 })
 
-app.get('/api/data', async (req, res) => {
+app.post("/api/chatbot", async (req, res) => {
     try {
-        const response = await axios.get('URL_DA_API', {
-            headers: { 'Authorization': `Bearer ${process.env.API_KEY}` }
+        let response = await axios.post("https://api.openai.com/v1/chat/completions", {
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: req.body.message }]
+        }, {
+            headers: {
+                "Authorization": `Bearer ${process.env.API_KEY}`,
+                "Content-Type": "application/json"
+            }
         });
-        res.json(response.data);
+
+        res.json({ reply: response.data.choices[0].message.content });
     } catch (error) {
-        res.status(500).json({ error: 'Erro ao obter dados' });
+        console.error("Erro na API OpenAI:", error);
+        res.status(500).json({ error: "Erro ao processar a resposta do chatbot." });
     }
 });
 /* app.post('/evento', upload.single('banner'), async(req, res) => {
