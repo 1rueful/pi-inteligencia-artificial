@@ -432,28 +432,33 @@ function sendMessage() {
 async function fetchChatbotResponse(userMessage) {
     let chatBox = document.getElementById("chatbot-messages");
 
-    try {
-        let response = await axios.post("https://api.openai.com/v1/chat/completions", {
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: userMessage }]
-        }, {
-            headers: {
-                "Authorization": `Bearer ${process.env.API_KEY}`,
-                "Content-Type": "application/json"
-            }
-        });
+    if (!userMessage.trim()) return;
 
-        let botResponse = response.data.choices[0].message.content;
+    chatBox.innerHTML += `<div><strong>Você:</strong> ${userMessage}</div>`;
+
+    let loadingMessage = document.createElement("div");
+    loadingMessage.innerHTML = `<strong>Bot:</strong> Digitando...`;
+    chatBox.appendChild(loadingMessage);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    try {
+        let response = await axios.post("/api/chatbot", { message: userMessage });
+
+        let botResponse = response?.data?.reply || "Não entendi sua pergunta. Pode reformular?";
+
+        loadingMessage.remove();
         chatBox.innerHTML += `<div><strong>Bot:</strong> ${botResponse}</div>`;
     } catch (error) {
         console.error("Erro na API:", error);
+
+        loadingMessage.remove();
         chatBox.innerHTML += `<div><strong>Bot:</strong> Ocorreu um erro, tente novamente.</div>`;
     }
 
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Simple chatbot responses (replace with AI API later)
+
 function getBotReply(message) {
     message = message.toLowerCase();
     if (message.includes("evento")) return "Você pode conferir os eventos na página principal!";
